@@ -35,12 +35,21 @@ function lb_immutable_sections_form_layout_builder_configure_section_alter(&$for
   if (!$form_state->getFormObject()->getSectionStorage() instanceof DefaultsSectionStorageInterface) {
     return;
   }
-  \assert($form_state->getFormObject()->getCurrentSection() instanceof Section);
-  $layoutSettings = $form_state->getFormObject()->getCurrentSection()->getLayoutSettings();
+  $currentSection = $form_state->getFormObject()->getCurrentSection();
+  \assert($currentSection instanceof Section);
+  $layoutSettings = $currentSection->getLayoutSettings();
+  $regions = $currentSection->getLayout()->getPluginDefinition()->getRegionNames();
+  $regionLabels = $currentSection->getLayout()->getPluginDefinition()->getRegionLabels();
   $form['layout_settings']['immutable'] = [
     '#type' => 'checkbox',
-    '#title' => t('Immutable'),
+    '#title' => t('Immutable section'),
     '#default_value' => $layoutSettings['immutable'] ?? FALSE,
+  ];
+  $form['layout_settings']['immutable_regions'] = [
+    '#type' => 'checkboxes',
+    '#title' => t('Immutable regions'),
+    '#options' => array_combine($regions, $regionLabels),
+    '#default_value' => $layoutSettings['immutable_regions'] ?? [],
   ];
   $form['layout_settings']['prevent_sections_before'] = [
     '#type' => 'checkbox',
@@ -72,6 +81,7 @@ function lb_immutable_sections_form_layout_builder_configure_section_submit(&$fo
   if (!$config['immutable_uuid']) {
     $config['immutable_uuid'] = \Drupal::service('uuid')->generate();
   }
+  $config['immutable_regions'] = $form_state->getValue(['layout_settings', 'immutable_regions']);
   $form_state->getFormObject()->getCurrentLayout()->setConfiguration($config);
 }
 

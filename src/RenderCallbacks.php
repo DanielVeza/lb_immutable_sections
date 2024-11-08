@@ -48,6 +48,11 @@ final class RenderCallbacks {
           unset($element['layout_builder'][$key + 1]);
         }
 
+        if ($item['layout-builder__section']['#settings']['immutable_regions'] ?? FALSE) {
+          foreach ($item['layout-builder__section']['#settings']['immutable_regions'] as $region) {
+            unset($element['layout_builder'][$key]['layout-builder__section'][$region]['layout_builder_add_block']);
+          }
+        }
       }
     }
     return $element;

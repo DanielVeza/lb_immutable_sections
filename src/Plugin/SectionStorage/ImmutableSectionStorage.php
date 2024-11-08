@@ -63,6 +63,7 @@ class ImmutableSectionStorage extends OverridesSectionStorage {
     }
     $defaultSections = $this->getDefaultSectionStorage()->getSections();
     foreach ($sections as $delta => $sectionItem) {
+      $defaultSection = NULL;
       \assert($sectionItem instanceof LayoutSectionItem);
       if ($sectionItem->section->getLayoutSettings()['immutable'] ?? FALSE) {
         $defaultSection = array_filter(
@@ -74,6 +75,26 @@ class ImmutableSectionStorage extends OverridesSectionStorage {
         );
         if ($defaultSection) {
           $sectionItem->section = reset($defaultSection);
+        }
+      }
+      if ($sectionItem->section->getLayoutSettings()['immutable_regions'] ?? FALSE) {
+        foreach ($sectionItem->section->getLayoutSettings()['immutable_regions'] as $region) {
+          if (!isset($defaultSection)) {
+            $defaultSection = current(array_filter(
+              iterator_to_array($defaultSections),
+              fn (Section $section) =>
+                array_key_exists('immutable_uuid', $section->getLayoutSettings()) &&
+                array_key_exists('immutable_uuid', $sectionItem->section->getLayoutSettings()) &&
+                $section->getLayoutSettings()['immutable_uuid'] === $sectionItem->section?->getLayoutSettings()['immutable_uuid']
+            ));
+          }
+          foreach ($sectionItem->section->getComponentsByRegion($region) as $delta => $component) {
+            $sectionItem->section->removeComponent($delta);
+          }
+          $sectionComponents = $sectionItem->section->getComponents();
+          foreach ($defaultSection->getComponentsByRegion($region) as $delta => $component) {
+            $sectionItem->section->appendComponent($component);
+          }
         }
       }
     }
