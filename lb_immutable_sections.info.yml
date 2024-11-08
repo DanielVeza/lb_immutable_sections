@@ -1,0 +1,4 @@
+name: lb_immutable_sections
+type: module
+description: 'LB Immutable sections.'
+core_version_requirement: ^10 || ^11

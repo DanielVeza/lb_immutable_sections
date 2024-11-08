@@ -1,0 +1,89 @@
+<?php
+
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\layout_builder\DefaultsSectionStorageInterface;
+use Drupal\layout_builder\Section;
+use Drupal\lb_immutable_sections\Plugin\SectionStorage\ImmutableSectionStorage;
+use Drupal\lb_immutable_sections\RenderCallbacks;
+
+function lb_immutable_sections_form_entity_view_display_edit_form_alter(&$form, FormStateInterface $form_state, $form_id) {
+  /** @var \Drupal\Core\Entity\EntityFormInterface $form_object */
+  $form_object = $form_state->getFormObject();
+  /** @var \Drupal\Core\Entity\Display\EntityViewDisplayInterface $display */
+  $display = $form_object->getEntity();
+  $form['layout']['immutable'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Immutable'),
+    '#default_value' => $display->getThirdPartySetting('lb_immutable_sections', 'immutable', FALSE),
+  ];
+  $form['actions']['submit']['#submit'][] = 'lb_immutable_sections_form_entity_view_display_edit_form_submit';
+}
+
+function lb_immutable_sections_form_entity_view_display_edit_form_submit(&$form, FormStateInterface $form_state) {
+  /** @var \Drupal\Core\Entity\EntityFormInterface $form_object */
+  $form_object = $form_state->getFormObject();
+  /** @var \Drupal\Core\Entity\Display\EntityViewDisplayInterface $display */
+  $display = $form_object->getEntity();
+  $display->setThirdPartySetting('lb_immutable_sections', 'immutable', $form_state->getValue(['layout', 'immutable']));
+  $display->save();
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function lb_immutable_sections_form_layout_builder_configure_section_alter(&$form, FormStateInterface $form_state, $form_id) {
+  if (!$form_state->getFormObject()->getSectionStorage() instanceof DefaultsSectionStorageInterface) {
+    return;
+  }
+  \assert($form_state->getFormObject()->getCurrentSection() instanceof Section);
+  $layoutSettings = $form_state->getFormObject()->getCurrentSection()->getLayoutSettings();
+  $form['layout_settings']['immutable'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Immutable'),
+    '#default_value' => $layoutSettings['immutable'] ?? FALSE,
+  ];
+  $form['layout_settings']['prevent_sections_before'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Prevent new sections from being added before this section'),
+    '#default_value' => $layoutSettings['prevent_sections_before'] ?? FALSE,
+  ];
+  $form['layout_settings']['prevent_sections_after'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Prevent new sections from being added after this section'),
+    '#default_value' => $layoutSettings['prevent_sections_after'] ?? FALSE,
+  ];
+  $originalSubmit = $form['#submit'];
+  $form['#submit'] = [];
+  $form['#submit'][] = 'lb_immutable_sections_form_layout_builder_configure_section_submit';
+  $form['#submit'] = array_merge($form['#submit'], $originalSubmit);
+}
+
+function lb_immutable_sections_form_layout_builder_configure_section_submit(&$form, FormStateInterface $form_state) {
+  if (!$form_state->getFormObject()->getSectionStorage() instanceof DefaultsSectionStorageInterface) {
+    return;
+  }
+  $layoutSettings = $form_state->getFormObject()->getCurrentSection()->getLayoutSettings();
+  $layoutSettings['immutable'] = $form_state->getValue(['layout_settings', 'immutable']);
+  $form_state->getFormObject()->getCurrentSection()->setLayoutSettings($layoutSettings);
+  $config = $form_state->getFormObject()->getCurrentLayout()->getConfiguration();
+  $config['immutable'] = $form_state->getValue(['layout_settings', 'immutable']);
+  $config['prevent_sections_before'] = $form_state->getValue(['layout_settings', 'prevent_sections_before']);
+  $config['prevent_sections_after'] = $form_state->getValue(['layout_settings', 'prevent_sections_after']);
+  if (!$config['immutable_uuid']) {
+    $config['immutable_uuid'] = \Drupal::service('uuid')->generate();
+  }
+  $form_state->getFormObject()->getCurrentLayout()->setConfiguration($config);
+}
+
+/**
+ * Implements hook_layout_builder_section_storage_alter().
+ */
+function lb_immutable_sections_layout_builder_section_storage_alter(array &$definitions) {
+  $definitions['overrides']->setClass(ImmutableSectionStorage::class);
+}
+
+function lb_immutable_sections_element_info_alter(array &$info) {
+  if (array_key_exists('layout_builder', $info)) {
+    $info['layout_builder']['#pre_render'][] = [RenderCallbacks::class, 'alterLayoutBuilder'];
+  }
+}
