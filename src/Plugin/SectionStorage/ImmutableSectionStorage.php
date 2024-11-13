@@ -19,6 +19,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Url;
 use Drupal\layout_builder\Attribute\SectionStorage;
 use Drupal\layout_builder\Entity\LayoutBuilderEntityViewDisplay;
+use Drupal\layout_builder\Field\LayoutSectionItemList;
 use Drupal\layout_builder\OverridesSectionStorageInterface;
 use Drupal\layout_builder\Plugin\Field\FieldType\LayoutSectionItem;
 use Drupal\layout_builder\Plugin\SectionStorage\OverridesSectionStorage;
@@ -53,7 +54,7 @@ class ImmutableSectionStorage extends OverridesSectionStorage {
 
   protected function getSectionList() {
     $sections = parent::getSectionList();
-    \assert($sections instanceof \Drupal\layout_builder\Field\LayoutSectionItemList);
+    \assert($sections instanceof LayoutSectionItemList);
     $hasImmutable = count(array_filter(
       iterator_to_array($sections),
       fn (LayoutSectionItem $sectionItem) => $sectionItem->section->getLayoutSettings()['immutable'] ?? FALSE
@@ -61,7 +62,14 @@ class ImmutableSectionStorage extends OverridesSectionStorage {
     if (!$hasImmutable) {
       return $sections;
     }
+    $layoutSections = $sections->getSections();
     $defaultSections = $this->getDefaultSectionStorage()->getSections();
+    $mergedSections = $this->mergeSections($layoutSections, $defaultSections);
+    $sections->removeAllSections();
+    foreach ($mergedSections as $mergedSection) {
+      $sections->appendItem($mergedSection);
+    }
+    $a = 1;
     foreach ($sections as $delta => $sectionItem) {
       $defaultSection = NULL;
       \assert($sectionItem instanceof LayoutSectionItem);
@@ -70,7 +78,7 @@ class ImmutableSectionStorage extends OverridesSectionStorage {
           iterator_to_array($defaultSections),
           fn (Section $section) =>
             array_key_exists('immutable_uuid', $section->getLayoutSettings()) &&
-            array_key_exists('immutable_uuid', $sectionItem->section->getLayoutSettings()) &&
+            array_key_exists('immutable_uuid', $sectionItem->section?->getLayoutSettings()) &&
             $section->getLayoutSettings()['immutable_uuid'] === $sectionItem->section?->getLayoutSettings()['immutable_uuid']
         );
         if ($defaultSection) {
@@ -79,19 +87,18 @@ class ImmutableSectionStorage extends OverridesSectionStorage {
       }
       if ($sectionItem->section->getLayoutSettings()['immutable_regions'] ?? FALSE) {
         foreach ($sectionItem->section->getLayoutSettings()['immutable_regions'] as $region) {
-          if (!isset($defaultSection)) {
+          //if (!isset($defaultSection)) {
             $defaultSection = current(array_filter(
               iterator_to_array($defaultSections),
               fn (Section $section) =>
                 array_key_exists('immutable_uuid', $section->getLayoutSettings()) &&
-                array_key_exists('immutable_uuid', $sectionItem->section->getLayoutSettings()) &&
+                array_key_exists('immutable_uuid', $sectionItem->section?->getLayoutSettings()) &&
                 $section->getLayoutSettings()['immutable_uuid'] === $sectionItem->section?->getLayoutSettings()['immutable_uuid']
             ));
-          }
+          //}
           foreach ($sectionItem->section->getComponentsByRegion($region) as $delta => $component) {
             $sectionItem->section->removeComponent($delta);
           }
-          $sectionComponents = $sectionItem->section->getComponents();
           foreach ($defaultSection->getComponentsByRegion($region) as $delta => $component) {
             $sectionItem->section->appendComponent($component);
           }
@@ -99,6 +106,42 @@ class ImmutableSectionStorage extends OverridesSectionStorage {
       }
     }
     return $sections;
+  }
+
+  private function mergeSections(array $layoutSections, array $defaultSections): array {
+    if (count($layoutSections) === count(array_filter($defaultSections, fn (Section $section) => $section->getLayoutSettings()['immutable_uuid'] ?? FALSE))) {
+      return $layoutSections;
+    }
+
+    $mergedLayoutSections = [];
+
+    foreach ($layoutSections as $delta => $layoutSection) {
+      $defaultSectionDelta = array_search(
+        $layoutSection->getLayoutSettings()['immutable_uuid'] ?? '',
+        array_map(fn (Section $section) => array_key_exists('immutable_uuid', $section->getLayoutSettings()) && $section->getLayoutSettings()['immutable_uuid'], $defaultSections)
+      );
+      $mergedLayoutSections[$delta] = $layoutSection;
+      if ($defaultSectionDelta !== FALSE) {
+        unset($defaultSections[$defaultSectionDelta]);
+      }
+//      $defaultSection = array_filter(
+//        $defaultSections,
+//        fn (Section $section) => $section->getLayoutSettings()['immutable_uuid'] === $layoutSection->getLayoutSettings()['immutable_uuid']
+//      );
+//      if ($defaultSection) {
+//        $mergedLayoutSections[$delta] = reset($defaultSection);
+//
+//      }
+//      else {
+//        $mergedLayoutSections[$delta] = $layoutSection;
+//      }
+    }
+    foreach ($defaultSections as $key => $defaultSection) {
+      array_splice($mergedLayoutSections, $key + 1, 0, [$defaultSection]);
+    }
+
+    return $mergedLayoutSections;
+
   }
 
 }

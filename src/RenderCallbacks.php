@@ -7,17 +7,14 @@ namespace Drupal\lb_immutable_sections;
 use Drupal\Core\Render\Element;
 use Drupal\Core\Security\Attribute\TrustedCallback;
 use Drupal\lb_immutable_sections\Plugin\SectionStorage\ImmutableSectionStorage;
-use Drupal\navigation\Plugin\SectionStorage\NavigationSectionStorage;
 
 /**
  * Defines a class for render element callbacks.
- *
- * @internal
  */
 final class RenderCallbacks {
 
   /**
-   * Pre-render callback for layout builder.
+   * Adjust links and headings for immutable sections & regions.
    */
   #[TrustedCallback]
   public static function alterLayoutBuilder(array $element): array {
