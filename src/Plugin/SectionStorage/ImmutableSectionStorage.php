@@ -54,6 +54,9 @@ class ImmutableSectionStorage extends OverridesSectionStorage {
 
   protected function getSectionList() {
     $sections = parent::getSectionList();
+    if (!$this->getEntity()->get(OverridesSectionStorage::FIELD_NAME)->isEmpty()) {
+      return $sections;
+    }
     \assert($sections instanceof LayoutSectionItemList);
     $hasImmutable = count(array_filter(
       iterator_to_array($sections),
