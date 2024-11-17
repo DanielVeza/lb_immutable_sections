@@ -6,6 +6,9 @@ use Drupal\layout_builder\Section;
 use Drupal\lb_immutable_sections\Plugin\SectionStorage\ImmutableSectionStorage;
 use Drupal\lb_immutable_sections\RenderCallbacks;
 
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
 function lb_immutable_sections_form_entity_view_display_edit_form_alter(&$form, FormStateInterface $form_state, $form_id) {
   /** @var \Drupal\Core\Entity\EntityFormInterface $form_object */
   $form_object = $form_state->getFormObject();
@@ -19,6 +22,9 @@ function lb_immutable_sections_form_entity_view_display_edit_form_alter(&$form, 
   $form['actions']['submit']['#submit'][] = 'lb_immutable_sections_form_entity_view_display_edit_form_submit';
 }
 
+/**
+ * Form submission handler for lb_immutable_sections_form_entity_view_display_edit_form_alter().
+ */
 function lb_immutable_sections_form_entity_view_display_edit_form_submit(&$form, FormStateInterface $form_state) {
   /** @var \Drupal\Core\Entity\EntityFormInterface $form_object */
   $form_object = $form_state->getFormObject();
@@ -32,6 +38,7 @@ function lb_immutable_sections_form_entity_view_display_edit_form_submit(&$form,
  * Implements hook_form_FORM_ID_alter().
  */
 function lb_immutable_sections_form_layout_builder_configure_section_alter(&$form, FormStateInterface $form_state, $form_id) {
+  // Only apply to default storage.
   if (!$form_state->getFormObject()->getSectionStorage() instanceof DefaultsSectionStorageInterface) {
     return;
   }
@@ -40,6 +47,9 @@ function lb_immutable_sections_form_layout_builder_configure_section_alter(&$for
   $layoutSettings = $currentSection->getLayoutSettings();
   $regions = $currentSection->getLayout()->getPluginDefinition()->getRegionNames();
   $regionLabels = $currentSection->getLayout()->getPluginDefinition()->getRegionLabels();
+  // Add the new form elements for immutable sections.
+  // @todo Check that the display has the immutable setting enabled,
+  // exit early if not.
   $form['layout_settings']['immutable'] = [
     '#type' => 'checkbox',
     '#title' => t('Immutable section'),
@@ -67,17 +77,28 @@ function lb_immutable_sections_form_layout_builder_configure_section_alter(&$for
   $form['#submit'] = array_merge($form['#submit'], $originalSubmit);
 }
 
+/**
+ * Form submission handler for lb_immutable_sections_form_layout_builder_configure_section_alter().
+ */
 function lb_immutable_sections_form_layout_builder_configure_section_submit(&$form, FormStateInterface $form_state) {
+  // Only apply to default storage.
   if (!$form_state->getFormObject()->getSectionStorage() instanceof DefaultsSectionStorageInterface) {
     return;
   }
+  // @todo Check that the display has the immutable setting enabled,
+  // exit early if not.
   $layoutSettings = $form_state->getFormObject()->getCurrentSection()->getLayoutSettings();
   $layoutSettings['immutable'] = $form_state->getValue(['layout_settings', 'immutable']);
   $form_state->getFormObject()->getCurrentSection()->setLayoutSettings($layoutSettings);
   $config = $form_state->getFormObject()->getCurrentLayout()->getConfiguration();
+  // Save the immutable settings to the layout configuration.
   $config['immutable'] = $form_state->getValue(['layout_settings', 'immutable']);
   $config['prevent_sections_before'] = $form_state->getValue(['layout_settings', 'prevent_sections_before']);
   $config['prevent_sections_after'] = $form_state->getValue(['layout_settings', 'prevent_sections_after']);
+  // Generate a UUID if one does not exist.
+  // If this section is immutable, this uuid is used to pull this section from
+  // the default storage when an entities layout is built during rendering.
+  // @see \Drupal\lb_sections_immutable\Plugin\SectionStorage\ImmutableSectionStorage::getSections().
   if (!$config['immutable_uuid']) {
     $config['immutable_uuid'] = \Drupal::service('uuid')->generate();
   }
@@ -89,9 +110,13 @@ function lb_immutable_sections_form_layout_builder_configure_section_submit(&$fo
  * Implements hook_layout_builder_section_storage_alter().
  */
 function lb_immutable_sections_layout_builder_section_storage_alter(array &$definitions) {
+  // @todo We should consider only overriding this if the immutable setting is enabled.
   $definitions['overrides']->setClass(ImmutableSectionStorage::class);
 }
 
+/**
+ * Implements hook_element_info_alter().
+ */
 function lb_immutable_sections_element_info_alter(array &$info) {
   if (array_key_exists('layout_builder', $info)) {
     $info['layout_builder']['#pre_render'][] = [RenderCallbacks::class, 'alterLayoutBuilder'];

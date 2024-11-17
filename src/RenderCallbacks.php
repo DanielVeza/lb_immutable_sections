@@ -24,27 +24,30 @@ final class RenderCallbacks {
           continue;
         }
         if ($item['layout-builder__section']['#settings']['immutable'] ?? FALSE) {
+          // Remove the contextual links from immutable sections.
           unset($element['layout_builder'][$key]['remove'], $element['layout_builder'][$key]['configure']);
           $element['layout_builder'][$key] = array_merge(
             ['heading' => ['#markup' => $item['layout-builder__section']['#settings']['label'] . ' (Immutable)']],
             $element['layout_builder'][$key]
           );
+          // Remove the add block button from immutable sections.
           unset($element['layout_builder'][$key]['layout-builder__section']['content']['layout_builder_add_block']);
-          // @todo Find the  js-layout-builder-region class properly rather than assuming it's the second class.
+          // @todo Find the js-layout-builder-region class properly rather than assuming it's the second class.
           unset($element['layout_builder'][$key]['layout-builder__section']['content']['#attributes']['class'][1]);
           foreach (Element::children($element['layout_builder'][$key]['layout-builder__section']['content']) as $delta) {
             unset($element['layout_builder'][$key]['layout-builder__section']['content'][$delta]['#contextual_links']);
           }
         }
 
+        // Remove the add section links if configured to do so.
         if ($item['layout-builder__section']['#settings']['prevent_sections_before'] ?? FALSE) {
           unset($element['layout_builder'][$key - 1]);
         }
-
         if ($item['layout-builder__section']['#settings']['prevent_sections_after'] ?? FALSE) {
           unset($element['layout_builder'][$key + 1]);
         }
 
+        // Remove the add block button from immutable regions.
         if ($item['layout-builder__section']['#settings']['immutable_regions'] ?? FALSE) {
           foreach ($item['layout-builder__section']['#settings']['immutable_regions'] as $region) {
             unset($element['layout_builder'][$key]['layout-builder__section'][$region]['layout_builder_add_block']);
