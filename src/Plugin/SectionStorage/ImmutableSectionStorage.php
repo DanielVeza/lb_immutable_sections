@@ -57,13 +57,13 @@ class ImmutableSectionStorage extends OverridesSectionStorage {
       $defaultSection = NULL;
       if ($sectionItem->getLayoutSettings()['immutable'] ?? FALSE) {
         // Find the default section by this sections immutable_uuid.
-        $defaultSection = \current(\array_filter(
+        $defaultSection = \array_filter(
           \iterator_to_array($defaultSections),
           fn (Section $section) =>
             \array_key_exists('immutable_uuid', $section->getLayoutSettings()) &&
             \array_key_exists('immutable_uuid', $sectionItem->getLayoutSettings()) &&
             $section->getLayoutSettings()['immutable_uuid'] === $sectionItem->getLayoutSettings()['immutable_uuid']
-        ));
+        );
         if ($defaultSection) {
           $sectionItem = \reset($defaultSection);
         }
